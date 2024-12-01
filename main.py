@@ -1,63 +1,65 @@
-from dotenv import load_dotenv
-from telegram import Bot
-import asyncio
 import os
+import re
+import asyncio
+from dotenv import load_dotenv
+from aiogram import Bot
 
-# Загрузка переменных окружения
+# Загружаем переменные из .env
 load_dotenv()
-group = os.getenv("group")
 token = os.getenv("token")
+group = os.getenv("group")
 
+# Инициализация бота
+bot = Bot(token)
 
-async def send_message_async(bot, chat_id, text):
-    """Асинхронно отправить сообщение в канал."""
-    await bot.send_message(chat_id=chat_id, text=text)
-    print(f"Message sent to {chat_id}: {text}")
+# Функция для экранирования текста в формате MarkdownV2, кроме скрытого текста
+def escape_markdown_v2(text):
+    """Экранирует символы MarkdownV2 для безопасной отправки в Telegram, кроме скрытого текста."""
+    # Экранируем все специальные символы MarkdownV2
+    text = re.sub(r'([_\*\[\]\(\)\~\`\>\#\+\-\=\|\,\.\!\&])', r'\\\1', text)
+    # Снимаем экранирование для символов, относящихся к скрытому тексту
+    text = text.replace(r'\|\|', '||')
+    return text
 
-
-def get_directory_from_user():
-    """Получает путь к директории от пользователя или использует путь по умолчанию."""
-    user_input = input("Введите путь к директории (по умолчанию ./msgs): ").strip()
-    return user_input if user_input else "./msgs"
-
-
-def read_files_from_directory(directory):
-    """Читает текст из всех файлов в указанной директории."""
+async def send_messages_from_directory():
+    """Получает файлы из директории и отправляет их содержимое как сообщения."""
+    # Путь к директории
+    directory = input("Введите путь к директории (по умолчанию ./msgs): ").strip() or "./msgs"
+    
     if not os.path.exists(directory):
-        raise FileNotFoundError(f"Директория '{directory}' не найдена.")
-    if not os.path.isdir(directory):
-        raise NotADirectoryError(f"Указанный путь '{directory}' не является директорией.")
+        print(f"Директория '{directory}' не найдена.")
+        return
 
-    # Получение списка файлов в директории
+    # Чтение текстов из файлов
     file_paths = [
         os.path.join(directory, file_name)
         for file_name in os.listdir(directory)
         if os.path.isfile(os.path.join(directory, file_name))
     ]
+    
+    if not file_paths:
+        print(f"В директории '{directory}' нет файлов.")
+        return
 
-    messages = []
     for file_path in file_paths:
         with open(file_path, "r", encoding="utf-8") as file:
             content = file.read().strip()
-            messages.append(content if content else " ")  # Отправлять пробел, если файл пуст
-    return messages
+            # Если файл пустой, отправляем пробел
+            if not content:
+                content = " "
 
+            # Экранируем только специальные символы Markdown, кроме || для скрытого текста
+            formatted_text = escape_markdown_v2(content)
 
-async def send_messages_from_directory(token, group):
-    """Получает файлы из директории и отправляет их содержимое как сообщения."""
-    bot = Bot(token)
-    directory = get_directory_from_user()
-    try:
-        messages = read_files_from_directory(directory)
-        if not messages:
-            print(f"В директории '{directory}' нет файлов.")
-            return
+            # Отправка сообщения с MarkdownV2
+            try:
+                await bot.send_message(group, formatted_text, parse_mode='MarkdownV2')
+                print(f"Message sent: {formatted_text}")
+            except Exception as e:
+                print(f"Ошибка при отправке сообщения: {e}")
 
-        for text in messages:
-            await send_message_async(bot, group, text)
-    except Exception as e:
-        print(f"Ошибка: {e}")
-
+async def main():
+    await send_messages_from_directory()
 
 if __name__ == "__main__":
-    asyncio.run(send_messages_from_directory(token, group))
+    asyncio.run(main())
