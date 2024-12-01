@@ -30,7 +30,7 @@ env:
 freeze:
 	@$(PIP) freeze
 
-git: env
+git:
 	@printf "$(YELLOW)==== Set user name and email to git for ${name} repo... ====$(NO_COLOR)\n"
 	@bash gituser.sh
 
