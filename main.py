@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import asyncio
 from dotenv import load_dotenv
 from aiogram import Bot
@@ -42,6 +43,8 @@ async def send_messages_from_directory():
         return
 
     for file_path in file_paths:
+        time.sleep(1)
+        file_name = os.path.basename(file_path).rsplit('.', 1)[0]  # Имя файла без расширения
         with open(file_path, "r", encoding="utf-8") as file:
             content = file.read().strip()
             # Если файл пустой, отправляем пробел
@@ -51,10 +54,15 @@ async def send_messages_from_directory():
             # Экранируем только специальные символы Markdown, кроме || для скрытого текста
             formatted_text = escape_markdown_v2(content)
 
-            # Отправка сообщения с MarkdownV2
+            # Отправка имени файла и содержимого
             try:
+                # Отправляем имя файла
+                await bot.send_message(group, f"*{escape_markdown_v2(file_name)}*", parse_mode='MarkdownV2')
+                print(f"Имя файла отправлено: {file_name}")
+
+                # Отправляем содержимое файла
                 await bot.send_message(group, formatted_text, parse_mode='MarkdownV2')
-                print(f"Message sent: {formatted_text}")
+                print(f"Содержимое файла отправлено: {formatted_text}")
             except Exception as e:
                 print(f"Ошибка при отправке сообщения: {e}")
 
